@@ -64,7 +64,8 @@ OWNER_ID=your-telegram-user-id
 Don't know your Telegram user ID? Put `OWNER_ID=0` for now, start the bot, send it any message and it
 replies with your ID. Then set it and restart.
 
-**3. Build and start.** The image is built locally from this repository; no registry is involved.
+**3. Build and start.** The image is built locally from this repository. A prebuilt image is also on
+[Docker Hub](https://hub.docker.com/r/popnow/popnow-bot) as `popnow/popnow-bot` if you would rather pull than build.
 
 ```sh
 docker compose up -d --build
