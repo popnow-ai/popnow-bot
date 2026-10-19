@@ -1,0 +1,35 @@
+# popnow-bot
+
+> popnow-bot is a self-hosted Telegram and Discord bot for the PopNow API (https://popnow.ai). It generates AI images and videos, animates still images into video (image-to-video) and applies trending video effects inside chats, with a price quote before every paid run, confirmation above a threshold, per-person and whole-bot daily credit limits, and owner/allow lists. MIT licensed, TypeScript, Node.js 22.13+, runs with Docker.
+
+## Commands
+- /pic <prompt>: text-to-image
+- /vid <prompt>: text-to-video
+- /animate <motion>: reply to an image to turn it into a video; also an Animate button under each generated image
+- /effect <name>, /effects: apply or list preset video effects (Tiny Planet, Hyperdrive, Liquid Chrome...); also an Effects button
+- /models, /spend, /report, /help
+
+## Setup
+- git clone https://github.com/popnow-ai/popnow-bot.git, cp .env.example .env, set POPNOW_API_KEY (sk-popnow-...), TELEGRAM_BOT_TOKEN and/or DISCORD_TOKEN, OWNER_ID
+- docker compose up -d --build (the image is built locally)
+- API keys: https://popnow.ai/api/console/keys
+
+## PopNow API endpoints used (base https://api.popnow.ai)
+- POST /api/v1/jobs/quote, POST /api/v1/jobs/createTask (quoteId, expectedCredits, Idempotency-Key), GET /api/v1/jobs/recordInfo
+- GET /api/v1/models, GET /api/v1/models/{model}
+- GET /api/v1/chat/credit (balance)
+- POST /api/v1/common/upload-url, POST /api/v1/files/{fileId}/commit (popnow://f/... URIs)
+
+## Key files
+- src/core/flows.ts: quote, confirm, run and deliver
+- src/core/media.ts: quote check, hold, submit, wait, settle
+- src/core/ledger.ts: daily credit limits and holds
+- src/core/effects.ts and effects/default.json: video effect presets
+- src/telegram/bot.ts, src/discord/bot.ts: platform front ends
+
+## Links
+- Docs: https://popnow.ai/docs
+- OpenAPI: https://popnow.ai/docs/openapi.yaml
+- Pricing: https://popnow.ai/pricing (1 credit = $0.01, failed runs refunded)
+- MCP server: https://popnow.ai/mcp
+- TypeScript SDK: https://github.com/popnow-ai/popnow-js

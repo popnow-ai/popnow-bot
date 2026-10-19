@@ -1,0 +1,160 @@
+{
+  "effects": [
+    {
+      "id": "tiny-planet",
+      "name": "Tiny Planet",
+      "description": "Your world curls into a little planet, with you on top.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The camera shoots straight up into the sky while the ground beneath the person curls into a tiny round planet: the scene around them wraps into a small sphere with the person standing on top of it. By the end the whole little planet floats in the frame with the person on its top, waving at the lens. The person stays exactly as they appear in the photo.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/tiny-planet-4b1b6dee.mp4"
+    },
+    {
+      "id": "hyperdrive",
+      "name": "Hyperdrive",
+      "description": "The world streaks into light speed while you stay cool.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The person stays completely still while the whole world behind them suddenly stretches into light-speed streaks: every light in the background smears into long blue and white lines rushing past, like jumping to hyperspace. Within one second a violent wind blasts their hair backward. The streaks keep accelerating until they fill the whole background, while the person stays sharp and steady, staring into the lens.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/hyperdrive-8fa33f15.mp4"
+    },
+    {
+      "id": "pupil-portal",
+      "name": "Pupil Portal",
+      "description": "Zoom into an eye and find a galaxy inside.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The camera pushes straight into one of the person's eyes in a fast smooth zoom until the iris fills the whole frame. Inside the pupil a vast glowing nebula opens up, swirling violet and gold gas clouds full of stars, and the camera keeps flying forward into deep space through it. The final frames are a full-screen cosmic nebula.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/pupil-portal-9ddcd84f.mp4"
+    },
+    {
+      "id": "crash-zoom",
+      "name": "Crash Zoom",
+      "description": "One beat of calm, then a punchy snap-zoom to your face.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The shot holds wide for a beat, then the camera snaps into a sudden, punchy zoom straight toward the main subject, overshoots slightly and settles into a sharp, steady close-up. Everything else in the scene stays in place while the frame tightens.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/crash-zoom-9a0d92b1.mp4"
+    },
+    {
+      "id": "marble-statue",
+      "name": "Marble Statue",
+      "description": "Marble creeps up until you're a gallery masterpiece.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "Starting at the bottom of the frame, the main subject gradually turns to smooth white marble, the stone spreading upward over their whole figure and hair, keeping every fold and outline exactly the same, until they stand perfectly still like a gallery sculpture. The camera keeps the original framing and drifts a few degrees around them as soft museum light rakes across the carved surface.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/marble-statue-91f7141e.mp4"
+    },
+    {
+      "id": "liquid-chrome",
+      "name": "Liquid Chrome",
+      "description": "A mirror-bright wave turns you into polished metal.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "A mirror-bright chrome finish spreads over the main subject from one side to the other like poured liquid metal, coating their whole figure and hair while keeping every fold, seam and outline exactly the same, until the subject gleams like a polished sculpture. The camera keeps the original framing and orbits a few degrees as reflections of the surroundings slide across the new surface.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/liquid-chrome-ede789b3.mp4"
+    },
+    {
+      "id": "unfurl-wings",
+      "name": "Unfurl Wings",
+      "description": "Huge feathered wings unfold behind your shoulders.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "A pair of large feathered wings slowly unfold from behind the main subject's shoulders and spread wide, soft feathers catching the light. The camera eases back and tilts up slightly to take in the full span as a few loose feathers drift down through the air.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/unfurl-wings-c2288186.mp4"
+    },
+    {
+      "id": "wave-wall",
+      "name": "Wave Wall",
+      "description": "A towering wave rises and curls right over your head.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "Behind the person a towering wall of ocean water rises many stories high, its shadow sweeping over the scene. The giant wave curls overhead with spray blowing past the person, who stays planted and looks into the lens. The final frames show the wave cresting high above them. The person stays exactly as they appear in the photo.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/wave-wall-8da8dd92.mp4"
+    },
+    {
+      "id": "eye-of-the-storm",
+      "name": "Calm in the Storm",
+      "description": "You stand still while wind, leaves and lightning whirl around you.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "Within the first second a fierce whirlwind forms around the person: a tight spinning wall of rain, autumn leaves and dust circles their body at high speed, close enough to whip their hair and clothes, while they stand perfectly still and calm in the quiet center, looking straight into the lens. Dark clouds churn overhead and lightning cracks behind them. The camera slowly pushes in. The person stays exactly as they appear in the photo.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/eye-of-the-storm-f108dbf6.mp4"
+    },
+    {
+      "id": "clone-split",
+      "name": "Clone Split",
+      "description": "You split into four copies that walk off, then line up.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The person takes one step forward and splits into four identical copies of themselves. The four walk away in four different directions, then all turn back at the same moment and stand in a row looking at the lens. The person stays exactly as they appear in the photo.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/clone-split-785ff1ad.mp4"
+    },
+    {
+      "id": "storm-charge",
+      "name": "Storm Charge",
+      "description": "Eyes flash white as lightning crackles down your arms.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The person's eyes flash bright white. Blue electric arcs burst from their shoulders and crawl down their arms to the fingertips, crackling and branching, while static lifts their hair upward. Lightning flickers in the background in sync. The camera pushes in toward their face as the electricity grows to surround them completely, and holds on the charged, glowing figure.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/storm-charge-c2852a7d.mp4"
+    },
+    {
+      "id": "shatterpoint",
+      "name": "Shatterpoint",
+      "description": "Turn to glass, crack, and burst into flying shards.",
+      "model": "minimax/h3/image-to-video",
+      "imageField": "image_url",
+      "prompt": "The person turns to clear crystal glass from the hands upward, clothes and all: the glass figure keeps the exact shape of their outfit, its folds and their hairstyle, like a cut-crystal sculpture of them exactly as they are dressed, catching the light. A crack runs across their chest, then the whole glass figure bursts apart into thousands of glittering shards that fly outward toward the lens in slow motion. The final frames show only drifting glass sparkles where the person stood.",
+      "input": {
+        "duration_seconds": 5,
+        "resolution": "768p"
+      },
+      "preview": "https://media.popnow.ai/effects/shatterpoint-9bbe7e73.mp4"
+    }
+  ]
+}

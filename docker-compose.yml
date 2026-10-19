@@ -1,0 +1,15 @@
+services:
+  bot:
+    # Built locally from this repository's Dockerfile.
+    build: .
+    image: popnow-bot:local
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Spend ledger, settings and accepted rules. A named volume keeps the right file permissions.
+      - bot-data:/data
+      # Your own effect presets: uncomment, then set EFFECTS_FILE=effects/custom.json in .env
+      # - ./my-effects.json:/app/effects/custom.json:ro
+
+volumes:
+  bot-data:
