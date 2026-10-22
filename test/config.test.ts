@@ -7,8 +7,8 @@ describe("loadConfig", () => {
   it("has safe defaults", () => {
     const { config, warnings } = loadConfig(minimal);
     expect(warnings).toEqual([]);
-    expect(config.limits).toEqual({ globalDaily: 500, userDaily: 100, maxConcurrentPerUser: 2 });
-    expect(config.spend).toEqual({ maxPerRequest: 100, confirmAbove: 10 });
+    expect(config.limits).toEqual({ globalDaily: 5000, userDaily: 1000, maxConcurrentPerUser: 2 });
+    expect(config.spend).toEqual({ maxPerRequest: 1000, confirmAbove: 100 });
     expect(config.allowPhotoUploads).toBe(false);
     expect(config.requireConsent).toBe(true);
     expect(config.access.users.ids.size).toBe(0);

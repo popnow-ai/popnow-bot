@@ -139,12 +139,12 @@ always work.
 ## How spending works
 
 1. **Price first.** Each request is quoted with `POST /api/v1/jobs/quote` before anything happens. Quotes are free.
-2. **Hard ceiling.** A request that could cost more than `MAX_CREDITS_PER_REQUEST` (default 100 credits) is
+2. **Hard ceiling.** A request that could cost more than `MAX_CREDITS_PER_REQUEST` (default 1,000 credits = $1) is
    refused. Nothing is charged.
-3. **Confirmation.** Above `CONFIRM_ABOVE_CREDITS` (default 10 credits) the bot shows the price with
+3. **Confirmation.** Above `CONFIRM_ABOVE_CREDITS` (default 100 credits = $0.10) the bot shows the price with
    **Confirm** and **Cancel** buttons. Only the person who asked can confirm.
-4. **Daily limits.** Each person may spend `USER_DAILY_BUDGET_CREDITS` (default 100) per UTC day, the whole
-   bot `DAILY_BUDGET_CREDITS` (default 500). Generations still running count as spent until they finish, so
+4. **Daily limits.** Each person may spend `USER_DAILY_BUDGET_CREDITS` (default 1,000) per UTC day, the whole
+   bot `DAILY_BUDGET_CREDITS` (default 5,000). Generations still running count as spent until they finish, so
    several requests at once cannot slip past a limit. Owners are only bound by the whole-bot limit.
 5. **No double charges.** Each task is created with the signed `quoteId`, the confirmed `expectedCredits` and an
    `Idempotency-Key` derived from the chat message or button tap, so a duplicated update or a double tap returns
@@ -152,7 +152,7 @@ always work.
 6. **Results.** Progress is shown by editing one message every few seconds. The result shows the actual charge
    and the task ID.
 
-1 credit = $0.01; see [popnow.ai/pricing](https://popnow.ai/pricing). A started generation cannot be cancelled.
+1 credit = $0.001; see [popnow.ai/pricing](https://popnow.ai/pricing). A started generation cannot be cancelled.
 Failed generations are refunded. The bot's ledger lives in `DATA_DIR/state.json`; the key's spend cap in the
 PopNow API console is the limit that can never be lost.
 
@@ -180,8 +180,8 @@ Every setting is an environment variable; [`.env.example`](.env.example) explain
 | `OWNER_ID` | required | Your user ID(s); `tg:` / `dc:` prefixes pin a platform |
 | `ALLOWED_USER_IDS` | empty | Other people allowed in private chats |
 | `ALLOWED_CHAT_IDS` | empty | Groups, channels or servers where the bot answers |
-| `DAILY_BUDGET_CREDITS` / `USER_DAILY_BUDGET_CREDITS` | `500` / `100` | Daily limits (UTC) |
-| `MAX_CREDITS_PER_REQUEST` / `CONFIRM_ABOVE_CREDITS` | `100` / `10` | Per-request ceiling and confirmation threshold |
+| `DAILY_BUDGET_CREDITS` / `USER_DAILY_BUDGET_CREDITS` | `5000` / `1000` | Daily limits (UTC) |
+| `MAX_CREDITS_PER_REQUEST` / `CONFIRM_ABOVE_CREDITS` | `1000` / `100` | Per-request ceiling and confirmation threshold |
 | `DEFAULT_IMAGE_MODEL` | `alibaba/z-image-turbo/text-to-image` | Any text-to-image model |
 | `DEFAULT_VIDEO_MODEL` / `DEFAULT_ANIMATE_MODEL` | `minimax/h3/text-to-video` / `minimax/h3/image-to-video` | Any text-to-video / image-to-video model |
 | `ALLOWED_MODELS` | empty (all) | Exact IDs or prefixes such as `alibaba/*` |
@@ -258,7 +258,7 @@ Liquid Chrome. Effects are presets you can edit in `effects/default.json`.
 
 ### How much does it cost, and can I see the price first?
 
-Every request is quoted before it runs, in PopNow credits (1 credit = $0.01). Above your confirmation
+Every request is quoted before it runs, in PopNow credits (1 credit = $0.001). Above your confirmation
 threshold the bot asks first, above your ceiling it refuses, and failed runs are refunded. There is no
 subscription; credit packs are on [popnow.ai/pricing](https://popnow.ai/pricing).
 

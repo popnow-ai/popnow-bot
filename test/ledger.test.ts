@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { emptyLedger, SpendLedger, type LedgerData } from "../src/core/ledger.js";
 import { formatCredits, parseCredits, requireCredits } from "../src/core/credits.js";
 
-/** Dollar amounts written the way people think about them, converted to credits (1 credit = $0.01). */
-const usd = (value: number) => Math.round(value * 100);
+/** Dollar amounts written the way people think about them, converted to credits (1 credit = $0.001). */
+const usd = (value: number) => Math.round(value * 1000);
 const limits = { globalDaily: usd(5), userDaily: usd(1), maxConcurrentPerUser: 2 };
 
 function ledger(now = { t: Date.parse("2026-10-06T10:00:00Z") }, data: LedgerData = emptyLedger()) {

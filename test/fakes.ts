@@ -10,8 +10,8 @@ export function quote(overrides: Partial<TaskQuote> = {}): TaskQuote {
   return {
     quoteId: "q_1",
     model: "example/image-model/text-to-image",
-    estimatedCost: "0.01",
-    maxCharge: "0.01",
+    estimatedCost: "0.001",
+    maxCharge: "0.001",
     maxCredits: 1,
     expectedCredits: 1,
     currency: "USD",
@@ -26,7 +26,7 @@ export function accepted(overrides: Partial<CreateTaskResponse> = {}): CreateTas
   return {
     taskId: "job_test1",
     state: "queued",
-    estimatedCost: "0.01",
+    estimatedCost: "0.001",
     estimatedCredits: 1,
     deadlineAt: new Date(NOW + 10 * 60_000).toISOString(),
     ...overrides,
@@ -38,7 +38,7 @@ export function task(overrides: Partial<TaskRecord> = {}): TaskRecord {
     taskId: "job_test1",
     model: "example/image-model/text-to-image",
     state: "succeeded",
-    cost: "0.01",
+    cost: "0.001",
     credits: 1,
     settled: true,
     createdAt: new Date(NOW).toISOString(),

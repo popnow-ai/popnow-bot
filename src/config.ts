@@ -116,13 +116,13 @@ export function loadConfig(env: Env): { config: BotConfig; warnings: string[] } 
     discordGuildId: get("DISCORD_GUILD_ID"),
     access: { owners, users, chats },
     limits: {
-      globalDaily: credits("DAILY_BUDGET_CREDITS", "500"),
-      userDaily: credits("USER_DAILY_BUDGET_CREDITS", "100"),
+      globalDaily: credits("DAILY_BUDGET_CREDITS", "5000"),
+      userDaily: credits("USER_DAILY_BUDGET_CREDITS", "1000"),
       maxConcurrentPerUser: integer("MAX_CONCURRENT_TASKS_PER_USER", 2, 1, 20),
     },
     spend: {
-      maxPerRequest: credits("MAX_CREDITS_PER_REQUEST", "100"),
-      confirmAbove: credits("CONFIRM_ABOVE_CREDITS", "10"),
+      maxPerRequest: credits("MAX_CREDITS_PER_REQUEST", "1000"),
+      confirmAbove: credits("CONFIRM_ABOVE_CREDITS", "100"),
     },
     defaults: {
       image: get("DEFAULT_IMAGE_MODEL") ?? DEFAULT_MODELS.image,

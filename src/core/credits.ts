@@ -1,5 +1,5 @@
 /**
- * PopNow prices everything in whole credits (1 credit = $0.01). Quotes, holds and final charges
+ * PopNow prices everything in whole credits (1 credit = $0.001). Quotes, holds and final charges
  * all come back as integers, so the bot keeps every amount as an integer number of credits.
  */
 export type Credits = number;

@@ -30,6 +30,6 @@
 ## Links
 - Docs: https://popnow.ai/docs
 - OpenAPI: https://popnow.ai/docs/openapi.yaml
-- Pricing: https://popnow.ai/pricing (1 credit = $0.01, failed runs refunded)
+- Pricing: https://popnow.ai/pricing (1 credit = $0.001, failed runs refunded)
 - MCP server: https://popnow.ai/mcp
 - TypeScript SDK: https://github.com/popnow-ai/popnow-js

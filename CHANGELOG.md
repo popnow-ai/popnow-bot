@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- PopNow credits are now worth $0.001 each (they were $0.01 before 2026-10-19). The default limits keep their
+  dollar value: `DAILY_BUDGET_CREDITS` 5000, `USER_DAILY_BUDGET_CREDITS` 1000, `MAX_CREDITS_PER_REQUEST` 1000
+  and `CONFIRM_ABOVE_CREDITS` 100. Values you set yourself in `.env` keep their number, so multiply them by
+  ten to keep the same dollar amount.
+
 ## [0.1.0] - 2026-10-19
 
 ### Added

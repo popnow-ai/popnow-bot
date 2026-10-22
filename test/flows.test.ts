@@ -66,15 +66,15 @@ describe("media flow with a fake PopNow API", () => {
 
   it("asks before spending above the threshold, and only the asker can confirm", async () => {
     const { core, api } = makeCore();
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 13, expectedCredits: 13 }));
+    api.quoteTask.mockResolvedValue(quote({ maxCredits: 130, expectedCredits: 130 }));
     api.waitForTask.mockResolvedValue(task({ output: { assets: [{ url: "https://files.example.test/v.mp4", mime: "video/mp4" }] } }));
     const { surface, statuses, delivered } = recordingSurface();
     await startMedia(core, caller, "animate", "slow push-in", "pnbot-k2", surface, "popnow://f/fil_1");
     expect(api.createTask).not.toHaveBeenCalled();
     const ask = statuses.at(-1)!;
-    expect(ask.text).toMatch(/up to 13 credits/);
+    expect(ask.text).toMatch(/up to 130 credits/);
     const confirm = ask.buttons!.find((button) => button.id.startsWith("ok:"))!;
-    expect(confirm.label).toBe("Confirm (13 credits)");
+    expect(confirm.label).toBe("Confirm (130 credits)");
 
     expect(await resolvePending(core, confirm.id, "tg:999", surface)).toMatch(/Only the person who asked/);
     expect(api.createTask).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe("media flow with a fake PopNow API", () => {
 
   it("cancels without charging", async () => {
     const { core, api } = makeCore();
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 50, expectedCredits: 50 }));
+    api.quoteTask.mockResolvedValue(quote({ maxCredits: 500, expectedCredits: 500 }));
     const { surface, statuses } = recordingSurface();
     await startMedia(core, caller, "image", "x", "pnbot-k3", surface);
     const cancel = statuses.at(-1)!.buttons!.find((button) => button.id.startsWith("no:"))!;
@@ -105,11 +105,11 @@ describe("media flow with a fake PopNow API", () => {
   });
 
   it("refuses above the per-request limit without submitting", async () => {
-    const { core, api } = makeCore({ MAX_CREDITS_PER_REQUEST: "20" });
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 30, expectedCredits: 25 }));
+    const { core, api } = makeCore({ MAX_CREDITS_PER_REQUEST: "200" });
+    api.quoteTask.mockResolvedValue(quote({ maxCredits: 300, expectedCredits: 250 }));
     const { surface, statuses } = recordingSurface();
     await startMedia(core, caller, "image", "x", "pnbot-k4", surface);
-    expect(statuses.at(-1)?.text).toBe("This would cost up to 30 credits, above the per-request limit of 20 credits. Nothing was charged.");
+    expect(statuses.at(-1)?.text).toBe("This would cost up to 300 credits, above the per-request limit of 200 credits. Nothing was charged.");
     expect(api.createTask).not.toHaveBeenCalled();
   });
 

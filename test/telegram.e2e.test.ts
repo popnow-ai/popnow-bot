@@ -152,13 +152,13 @@ describe("Telegram bot against a fake Bot API", () => {
 
   it("asks for confirmation above the threshold and runs only after the tap", async () => {
     const { telegram, api } = await start();
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 40, expectedCredits: 40 }));
+    api.quoteTask.mockResolvedValue(quote({ maxCredits: 400, expectedCredits: 400 }));
     telegram.push(message(OWNER, "/pic something big"));
-    await vi.waitFor(() => expect(telegram.method("editMessageText").some((call) => String(call.body.text).includes("up to 40 credits"))).toBe(true), { timeout: 5000 });
-    const ask = telegram.method("editMessageText").find((call) => String(call.body.text).includes("up to 40 credits"))!;
+    await vi.waitFor(() => expect(telegram.method("editMessageText").some((call) => String(call.body.text).includes("up to 400 credits"))).toBe(true), { timeout: 5000 });
+    const ask = telegram.method("editMessageText").find((call) => String(call.body.text).includes("up to 400 credits"))!;
     const keyboard = ask.body.reply_markup as { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> };
     const confirm = keyboard.inline_keyboard[0]![0]!;
-    expect(confirm.text).toBe("Confirm (40 credits)");
+    expect(confirm.text).toBe("Confirm (400 credits)");
     expect(api.createTask).not.toHaveBeenCalled();
 
     telegram.push({
