@@ -1,14 +1,14 @@
 import { randomBytes } from "node:crypto";
-import type { TaskRecord, UploadContentType } from "popnow";
+import type { UploadContentType } from "popnow";
 import type { BotConfig } from "../config.js";
-import { createClient, popnowApi, type PopNowApi } from "./api.js";
+import { createClient, popnowApi, type PopNowApi, type Task } from "./api.js";
 import { Catalog, KIND_LABEL } from "./catalog.js";
-import { formatCredits, parseCredits } from "./credits.js";
 import { effectInput, findEffect, loadEffects, type Effect } from "./effects.js";
 import { buildMediaInput, imageField, InputError } from "./inputs.js";
 import { SpendLedger } from "./ledger.js";
 import { MediaRunner, type PreparedMedia } from "./media.js";
 import { spendSummary } from "./messages.js";
+import { creditsToUsd, formatUsd, parseSignedUsd } from "./money.js";
 import { JsonFileStore, type MediaKind, type ModelKind, type StateStore } from "./store.js";
 
 export const DEFAULT_MOTION = "Subtle, natural motion with a slow camera push-in.";
@@ -206,7 +206,7 @@ export class BotCore {
 
   /** The image from a task this bot created, with a fresh download link. */
   async imageFromTask(taskId: string): Promise<{ url: string; prompt: string | undefined }> {
-    const task: TaskRecord = await this.api.getTask(taskId);
+    const task: Task = await this.api.getTask(taskId);
     const asset = task.output?.assets?.find((item) => item.url && !item.unavailable && (item.mime ?? "image/").startsWith("image/"));
     if (task.state !== "succeeded" || !asset?.url) {
       throw new InputError("That image is no longer available. Generate a new one first.");
@@ -238,8 +238,9 @@ export class BotCore {
     if (caller.owner) {
       try {
         const result = await this.api.getBalance();
-        const available = parseCredits(result.availableCredits);
-        balance = available === undefined ? "unavailable right now" : formatCredits(available);
+        // availableUsd is exact; the credit field is read only when an older server sends no USD.
+        const available = parseSignedUsd(result.availableUsd) ?? parseSignedUsd(result.available) ?? creditsToUsd(result.availableCredits);
+        balance = available === undefined ? "unavailable right now" : formatUsd(available);
       } catch {
         balance = "unavailable right now";
       }

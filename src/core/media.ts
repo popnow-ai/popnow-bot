@@ -1,45 +1,70 @@
-import {
-  APIConnectionError,
-  APIError,
-  WaitTimeoutError,
-  isTerminalState,
-  type CreateTaskResponse,
-  type TaskOutputAsset,
-  type TaskQuote,
-  type TaskRecord,
-} from "popnow";
-import type { PopNowApi } from "./api.js";
-import { parseCredits, type Credits } from "./credits.js";
+import { APIConnectionError, APIError, WaitTimeoutError, isTerminalState, type TaskOutputAsset } from "popnow";
+import type { AcceptedTask, CreateTaskPayload, PopNowApi, Quote, Task } from "./api.js";
 import type { SpendLedger, SpendVerdict } from "./ledger.js";
+import { creditsToUsd, firstUsd, parseUsd, usdString, type Usd } from "./money.js";
 
 /** The slice of the PopNow API the media flow uses; tests pass a fake. */
 export type MediaApi = Pick<PopNowApi, "quoteTask" | "createTask" | "waitForTask" | "getTask">;
 
 export interface SpendPolicy {
-  /** A quote whose worst case is above this is refused outright. */
-  maxPerRequest: Credits;
-  /** A quote whose worst case is above this needs a tap on "Confirm" first. */
-  confirmAbove: Credits;
+  /** A quote whose worst case is above this (USD) is refused outright. */
+  maxPerRequest: Usd;
+  /** A quote whose worst case is above this (USD) needs a tap on "Confirm" first. */
+  confirmAbove: Usd;
 }
 
 export type QuoteDecision =
-  | { kind: "go"; worst: Credits }
-  | { kind: "confirm"; worst: Credits }
-  | { kind: "too_expensive"; worst: Credits; limit: Credits }
-  | { kind: "over_budget"; worst: Credits; verdict: Exclude<SpendVerdict, { ok: true }> };
+  | { kind: "go"; worst: Usd }
+  | { kind: "confirm"; worst: Usd }
+  | { kind: "too_expensive"; worst: Usd; limit: Usd }
+  | { kind: "over_budget"; worst: Usd; verdict: Exclude<SpendVerdict, { ok: true }> };
 
-/** The most a quote can end up costing: `maxCredits`, or `expectedCredits` when there is no ceiling. */
-export function worstCase(quote: Pick<TaskQuote, "maxCredits" | "expectedCredits">): Credits {
-  const max = parseCredits(quote.maxCredits);
+type QuoteAmounts = Partial<
+  Pick<Quote, "maxChargeUsd" | "maxCharge" | "estimatedCost" | "expectedChargeUsd" | "expectedCharge" | "maxCredits" | "expectedCredits">
+>;
+
+/** The exact USD string the quote holds at most: `maxChargeUsd`, then its legacy aliases. */
+function quoteMaxString(quote: QuoteAmounts): string | undefined {
+  return [quote.maxChargeUsd, quote.maxCharge, quote.estimatedCost].find((value) => parseUsd(value) !== undefined);
+}
+
+/**
+ * The most a quote can end up costing, in USD: `maxChargeUsd` (or its legacy aliases), or the
+ * typical charge when there is no ceiling. Credits are read only when no USD field is there.
+ */
+export function worstCase(quote: QuoteAmounts): Usd {
+  const max = firstUsd(quote.maxChargeUsd, quote.maxCharge, quote.estimatedCost) ?? creditsToUsd(quote.maxCredits);
   if (max !== undefined && max > 0) return max;
-  const expected = parseCredits(quote.expectedCredits);
+  const expected = firstUsd(quote.expectedChargeUsd, quote.expectedCharge) ?? creditsToUsd(quote.expectedCredits);
   if (expected !== undefined) return expected;
   // An unreadable quote must never look free.
   return Number.MAX_SAFE_INTEGER;
 }
 
+/**
+ * How createTask confirms the hold: the quote's exact `maxChargeUsd` as `expectedCostUsd`. Only a
+ * quote without any USD amount falls back to the deprecated `expectedCredits`; with neither, the
+ * quote id alone confirms the quoted price.
+ */
+export function holdConfirmation(quote: QuoteAmounts): Pick<CreateTaskPayload, "expectedCostUsd" | "expectedCredits"> {
+  const exact = quoteMaxString(quote);
+  if (exact !== undefined) return { expectedCostUsd: exact.trim() };
+  if (typeof quote.maxCredits === "number") return { expectedCredits: quote.maxCredits };
+  return {};
+}
+
+/** USD held when a task was accepted. */
+export function acceptedHold(accepted: Partial<Pick<AcceptedTask, "estimatedCostUsd" | "estimatedCost" | "estimatedCredits">>): Usd | undefined {
+  return firstUsd(accepted.estimatedCostUsd, accepted.estimatedCost) ?? creditsToUsd(accepted.estimatedCredits);
+}
+
+/** A task's final charge once settled, otherwise its hold. */
+export function taskCost(task: Partial<Pick<Task, "costUsd" | "cost" | "credits">>): Usd | undefined {
+  return firstUsd(task.costUsd, task.cost) ?? creditsToUsd(task.credits);
+}
+
 /** Pure decision for one quote: refuse, ask, or go. The per-request ceiling wins over everything. */
-export function decideQuote(worst: Credits, policy: SpendPolicy, budget: SpendVerdict): QuoteDecision {
+export function decideQuote(worst: Usd, policy: SpendPolicy, budget: SpendVerdict): QuoteDecision {
   if (worst > policy.maxPerRequest) return { kind: "too_expensive", worst, limit: policy.maxPerRequest };
   if (!budget.ok) return { kind: "over_budget", worst, verdict: budget };
   if (worst > policy.confirmAbove) return { kind: "confirm", worst };
@@ -58,13 +83,13 @@ export interface MediaRequest {
 
 export interface PreparedMedia {
   request: MediaRequest;
-  quote: TaskQuote;
+  quote: Quote;
   decision: QuoteDecision;
 }
 
 export type MediaOutcome =
-  | { kind: "succeeded"; task: TaskRecord; assets: TaskOutputAsset[]; charged: Credits; final: boolean }
-  | { kind: "failed"; task: TaskRecord }
+  | { kind: "succeeded"; task: Task; assets: TaskOutputAsset[]; charged: Usd; final: boolean }
+  | { kind: "failed"; task: Task }
   /** The local wait ran out; the task is still running and will still be billed. */
   | { kind: "still_running"; taskId: string }
   /** Nothing was submitted: the budget or the price changed since the quote. */
@@ -73,8 +98,8 @@ export type MediaOutcome =
   | { kind: "unknown"; error: unknown };
 
 export interface RunHooks {
-  onAccepted?: (accepted: CreateTaskResponse) => void;
-  onProgress?: (task: TaskRecord, elapsedMs: number) => void;
+  onAccepted?: (accepted: AcceptedTask) => void;
+  onProgress?: (task: Task, elapsedMs: number) => void;
   signal?: AbortSignal;
 }
 
@@ -109,7 +134,7 @@ export class MediaRunner {
     return { request, quote, decision: this.decide(request, quote) };
   }
 
-  private decide(request: MediaRequest, quote: TaskQuote): QuoteDecision {
+  private decide(request: MediaRequest, quote: Quote): QuoteDecision {
     const worst = worstCase(quote);
     const budget = this.ledger.check(request.user, worst, { kind: "media", exemptFromUserCap: request.owner });
     return decideQuote(worst, this.policy, budget);
@@ -137,7 +162,7 @@ export class MediaRunner {
     if (!reserved.ok) return { kind: "not_submitted", decision: { kind: "over_budget", worst: worstCase(quote), verdict: reserved } };
     let holdId = reserved.holdId;
 
-    let accepted: CreateTaskResponse;
+    let accepted: AcceptedTask;
     try {
       accepted = await this.submit(request, quote);
     } catch (error) {
@@ -165,13 +190,13 @@ export class MediaRunner {
     }
 
     this.ledger.attachTask(holdId, accepted.taskId);
-    const held = parseCredits(accepted.estimatedCredits);
+    const held = acceptedHold(accepted);
     if (held !== undefined) this.ledger.adjustHold(holdId, held);
-    this.log(`task ${accepted.taskId} accepted, holding ${accepted.estimatedCredits} credits`);
+    this.log(`task ${accepted.taskId} accepted, holding ${held === undefined ? "an unknown amount" : `$${usdString(held)}`}`);
     safely(() => hooks.onAccepted?.(accepted));
 
     const startedAt = this.now();
-    let task: TaskRecord;
+    let task: Task;
     try {
       task = await this.api.waitForTask(accepted.taskId, {
         timeoutMs: waitBudget(accepted.deadlineAt, this.now()),
@@ -188,7 +213,7 @@ export class MediaRunner {
     const charged = this.record(holdId, task);
     if (task.state === "succeeded") {
       const assets = (task.output?.assets ?? []).filter((asset) => asset.url && !asset.unavailable && !asset.pending);
-      this.log(`task ${task.taskId} succeeded, cost ${task.credits} credits${task.settled ? "" : " (not final yet)"}`);
+      this.log(`task ${task.taskId} succeeded, cost $${usdString(charged)}${task.settled ? "" : " (not final yet)"}`);
       return { kind: "succeeded", task, assets, charged, final: task.settled };
     }
     this.log(`task ${task.taskId} ended as ${task.state} (${task.errorCode ?? "no code"})`);
@@ -209,15 +234,15 @@ export class MediaRunner {
     }
   }
 
-  private acceptable(decision: QuoteDecision, approvedWorst: Credits): boolean {
+  private acceptable(decision: QuoteDecision, approvedWorst: Usd): boolean {
     if (decision.kind === "go") return true;
     // Already confirmed: fine as long as the price did not go above what the person saw.
     return decision.kind === "confirm" && decision.worst <= approvedWorst;
   }
 
-  private submit(request: MediaRequest, quote: TaskQuote): Promise<CreateTaskResponse> {
+  private submit(request: MediaRequest, quote: Quote): Promise<AcceptedTask> {
     return this.api.createTask(
-      { model: request.model, input: request.input, quoteId: quote.quoteId, expectedCredits: quote.maxCredits },
+      { model: request.model, input: request.input, quoteId: quote.quoteId, ...holdConfirmation(quote) },
       {
         idempotencyKey: request.idempotencyKey,
         ...(this.options.retentionSeconds === undefined ? {} : { retentionSeconds: this.options.retentionSeconds }),
@@ -238,8 +263,8 @@ export class MediaRunner {
   }
 
   /** Applies a task record to its hold; returns the amount it shows. */
-  private record(holdId: string, task: TaskRecord): Credits {
-    const cost = parseCredits(task.credits) ?? 0;
+  private record(holdId: string, task: Task): Usd {
+    const cost = taskCost(task) ?? 0;
     if (task.settled) this.ledger.settle(holdId, cost);
     else this.ledger.adjustHold(holdId, cost);
     return cost;

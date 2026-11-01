@@ -1,52 +1,57 @@
 import { randomUUID } from "node:crypto";
-import type { Credits } from "./credits.js";
+import { NANOS_PER_CREDIT, type Usd } from "./money.js";
 
 export type HoldKind = "media";
 
-/** Credits set aside for a request that has not finished yet. */
+/** The unit every amount in the ledger is stored in: whole nanodollars (1 USD = 1e9). */
+export const LEDGER_UNIT = "usd-nanos";
+
+/** USD set aside for a request that has not finished yet. */
 export interface Hold {
   id: string;
   user: string;
   /** UTC day (YYYY-MM-DD) the money is counted against. */
   day: string;
-  amount: Credits;
+  amount: Usd;
   kind: HoldKind;
   taskId?: string;
   createdAt: number;
 }
 
 export interface DayTotals {
-  total: Credits;
-  users: Record<string, Credits>;
+  total: Usd;
+  users: Record<string, Usd>;
 }
 
 export interface LedgerData {
+  /** Absent in state files written by 0.1.x, whose amounts are whole credits. */
+  unit?: typeof LEDGER_UNIT;
   days: Record<string, DayTotals>;
   holds: Record<string, Hold>;
 }
 
 export interface LedgerLimits {
-  /** Whole-bot spend per UTC day. */
-  globalDaily: Credits;
-  /** Spend per person per UTC day. Owners are exempt and only bounded by globalDaily. */
-  userDaily: Credits;
+  /** Whole-bot spend per UTC day, in USD. */
+  globalDaily: Usd;
+  /** Spend per person per UTC day, in USD. Owners are exempt and only bounded by globalDaily. */
+  userDaily: Usd;
   /** Media tasks one person may have running at once. */
   maxConcurrentPerUser: number;
 }
 
 export interface SpendSnapshot {
   day: string;
-  userSettled: Credits;
-  userHeld: Credits;
-  globalSettled: Credits;
-  globalHeld: Credits;
+  userSettled: Usd;
+  userHeld: Usd;
+  globalSettled: Usd;
+  globalHeld: Usd;
   userRunning: number;
 }
 
 export type SpendVerdict =
   | { ok: true }
-  | { ok: false; reason: "user_cap"; limit: Credits; remaining: Credits }
-  | { ok: false; reason: "global_cap"; limit: Credits; remaining: Credits }
+  | { ok: false; reason: "user_cap"; limit: Usd; remaining: Usd }
+  | { ok: false; reason: "global_cap"; limit: Usd; remaining: Usd }
   | { ok: false; reason: "concurrency"; limit: number };
 
 export interface SpendOptions {
@@ -56,7 +61,31 @@ export interface SpendOptions {
 }
 
 export function emptyLedger(): LedgerData {
-  return { days: {}, holds: {} };
+  return { unit: LEDGER_UNIT, days: {}, holds: {} };
+}
+
+/**
+ * Brings a stored ledger to the current unit. Files written by 0.1.x have no `unit` and count
+ * whole credits; each credit is $0.001, so every amount is scaled to nanodollars exactly once.
+ */
+export function migrateLedger(stored: Partial<LedgerData> | undefined): LedgerData {
+  const days = stored?.days ?? {};
+  const holds = stored?.holds ?? {};
+  if (stored?.unit === LEDGER_UNIT) return { unit: LEDGER_UNIT, days, holds };
+  const scale = (amount: unknown): Usd => {
+    const nanos = typeof amount === "number" && Number.isFinite(amount) ? Math.round(amount) * NANOS_PER_CREDIT : 0;
+    return Number.isSafeInteger(nanos) ? Math.max(0, nanos) : Number.MAX_SAFE_INTEGER;
+  };
+  const migratedDays: Record<string, DayTotals> = {};
+  for (const [day, totals] of Object.entries(days)) {
+    migratedDays[day] = {
+      total: scale(totals?.total),
+      users: Object.fromEntries(Object.entries(totals?.users ?? {}).map(([user, amount]) => [user, scale(amount)])),
+    };
+  }
+  const migratedHolds: Record<string, Hold> = {};
+  for (const [id, hold] of Object.entries(holds)) migratedHolds[id] = { ...hold, amount: scale(hold.amount) };
+  return { unit: LEDGER_UNIT, days: migratedDays, holds: migratedHolds };
 }
 
 export function utcDay(timestamp: number): string {
@@ -108,7 +137,7 @@ export class SpendLedger {
     };
   }
 
-  check(user: string, amount: Credits, options: SpendOptions): SpendVerdict {
+  check(user: string, amount: Usd, options: SpendOptions): SpendVerdict {
     const snap = this.snapshot(user);
     if (options.kind === "media" && snap.userRunning >= this.limits.maxConcurrentPerUser) {
       return { ok: false, reason: "concurrency", limit: this.limits.maxConcurrentPerUser };
@@ -137,7 +166,7 @@ export class SpendLedger {
   }
 
   /** Checks and holds in one step. */
-  reserve(user: string, amount: Credits, options: SpendOptions): { ok: true; holdId: string } | Exclude<SpendVerdict, { ok: true }> {
+  reserve(user: string, amount: Usd, options: SpendOptions): { ok: true; holdId: string } | Exclude<SpendVerdict, { ok: true }> {
     const verdict = this.check(user, amount, options);
     if (!verdict.ok) return verdict;
     const hold: Hold = {
@@ -161,7 +190,7 @@ export class SpendLedger {
   }
 
   /** Replaces the held amount, for example with the amount the server actually held. */
-  adjustHold(holdId: string, amount: Credits): void {
+  adjustHold(holdId: string, amount: Usd): void {
     const hold = this.data.holds[holdId];
     if (!hold) return;
     hold.amount = Math.max(0, amount);
@@ -169,7 +198,7 @@ export class SpendLedger {
   }
 
   /** Converts a hold into a final charge on the day it was taken. */
-  settle(holdId: string, charged: Credits): void {
+  settle(holdId: string, charged: Usd): void {
     const hold = this.data.holds[holdId];
     if (!hold) return;
     delete this.data.holds[holdId];

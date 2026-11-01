@@ -1,6 +1,6 @@
 {
   "name": "popnow-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Self-hosted Telegram and Discord bot for PopNow: AI images, videos, image-to-video and trending video effects, with price quotes and spend limits.",
   "license": "MIT",

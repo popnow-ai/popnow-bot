@@ -1,7 +1,8 @@
-import type { Model } from "popnow";
-import type { PopNowApi } from "./api.js";
-import { formatCredits } from "./credits.js";
+import type { CatalogModel, PopNowApi } from "./api.js";
+import { creditsToUsd, formatUsd, parseUsd, type Usd } from "./money.js";
 import type { ModelKind } from "./store.js";
+
+type Model = CatalogModel;
 
 export type CatalogApi = Pick<PopNowApi, "listModels" | "getModel">;
 
@@ -49,20 +50,32 @@ export function selectableModels(models: readonly Model[], kind: ModelKind, allo
         model.toolkit === undefined &&
         modelAllowed(allowed, model.model),
     )
-    .sort((a, b) => startingCredits(a) - startingCredits(b) || a.displayName.localeCompare(b.displayName));
+    .sort((a, b) => startingPrice(a) - startingPrice(b) || a.displayName.localeCompare(b.displayName));
 }
 
-function startingCredits(model: Pick<Model, "credits">): number {
-  const value = model.credits?.perUnit;
-  return typeof value === "number" && Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
-}
-
-/** "3 credits/image", or "from 5 credits/s" when the price depends on the settings. */
-export function priceLabel(model: Pick<Model, "credits">): string {
+/**
+ * The starting USD rate of a model: the `usd` snapshot, or the deprecated credit snapshot when an
+ * older server sends no USD. Credit rates may be fractional, so only whole ones are converted.
+ */
+function startingRate(model: Pick<Model, "usd" | "credits">): { perUnit: Usd; unit: string; varies: boolean } | undefined {
+  const usd = model.usd;
+  const perUnit = parseUsd(usd?.perUnit);
+  if (usd && perUnit !== undefined) return { perUnit, unit: usd.unit, varies: (usd.rules?.length ?? 0) > 0 };
   const credits = model.credits;
-  if (!credits || typeof credits.perUnit !== "number") return "";
-  const varies = (credits.rules?.length ?? 0) > 0;
-  return `${varies ? "from " : ""}${formatCredits(credits.perUnit)}/${UNIT_LABEL[credits.unit] ?? credits.unit}`;
+  const fromCredits = creditsToUsd(credits?.perUnit);
+  if (credits && fromCredits !== undefined) return { perUnit: fromCredits, unit: credits.unit, varies: (credits.rules?.length ?? 0) > 0 };
+  return undefined;
+}
+
+function startingPrice(model: Pick<Model, "usd" | "credits">): number {
+  return startingRate(model)?.perUnit ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** "$0.01/image", or "from $0.045/s" when the price depends on the settings. */
+export function priceLabel(model: Pick<Model, "usd" | "credits">): string {
+  const rate = startingRate(model);
+  if (!rate) return "";
+  return `${rate.varies ? "from " : ""}${formatUsd(rate.perUnit)}/${UNIT_LABEL[rate.unit] ?? rate.unit}`;
 }
 
 /** Model list cache. The catalog changes rarely and the list endpoint is rate limited. */

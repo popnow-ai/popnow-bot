@@ -1,6 +1,5 @@
 import type { TaskOutputAsset } from "popnow";
 import type { BotCore, Caller } from "./bot-core.js";
-import { formatCredits } from "./credits.js";
 import type { Effect } from "./effects.js";
 import type { PreparedMedia } from "./media.js";
 import {
@@ -12,6 +11,7 @@ import {
   progressText,
   resultCaption,
 } from "./messages.js";
+import { formatUsd } from "./money.js";
 import type { MediaKind, ModelKind } from "./store.js";
 import { ThrottledEditor } from "./throttle.js";
 
@@ -103,7 +103,7 @@ async function startPrepared(
     // The key stays claimed while the request waits for Confirm.
     const parked = core.park(caller, kind, prepared, modelName, null);
     await surface.status(confirmText(decision.worst, modelName), [
-      { id: `${CALLBACK.confirm}${parked.id}`, label: `Confirm (${formatCredits(decision.worst)})`, style: "primary" },
+      { id: `${CALLBACK.confirm}${parked.id}`, label: `Confirm (${formatUsd(decision.worst)})`, style: "primary" },
       { id: `${CALLBACK.cancel}${parked.id}`, label: "Cancel", style: "secondary" },
     ]);
     return;
@@ -135,7 +135,7 @@ export async function resolvePending(core: BotCore, data: string, user: string, 
 export async function executeMedia(core: BotCore, prepared: PreparedMedia, kind: MediaKind, modelName: string, surface: MediaSurface): Promise<void> {
   const worst = prepared.decision.worst;
   const editor = new ThrottledEditor((text) => surface.status(text), surface.progressIntervalMs);
-  editor.update(`Submitting...\n${modelName} · up to ${formatCredits(worst)}`);
+  editor.update(`Submitting...\n${modelName} · up to ${formatUsd(worst)}`);
   try {
     const outcome = await core.media.run(prepared, {
       onAccepted: () => editor.update(progressText("queued", 0, worst, modelName)),

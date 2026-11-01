@@ -7,8 +7,9 @@ describe("loadConfig", () => {
   it("has safe defaults", () => {
     const { config, warnings } = loadConfig(minimal);
     expect(warnings).toEqual([]);
-    expect(config.limits).toEqual({ globalDaily: 5000, userDaily: 1000, maxConcurrentPerUser: 2 });
-    expect(config.spend).toEqual({ maxPerRequest: 1000, confirmAbove: 100 });
+    // USD in nanodollars: $5 a day for the bot, $1 per person, $1 per request, confirm above $0.10.
+    expect(config.limits).toEqual({ globalDaily: 5_000_000_000, userDaily: 1_000_000_000, maxConcurrentPerUser: 2 });
+    expect(config.spend).toEqual({ maxPerRequest: 1_000_000_000, confirmAbove: 100_000_000 });
     expect(config.allowPhotoUploads).toBe(false);
     expect(config.requireConsent).toBe(true);
     expect(config.access.users.ids.size).toBe(0);
@@ -33,6 +34,43 @@ describe("loadConfig", () => {
       expect(text).toMatch(/MAX_CONCURRENT_TASKS_PER_USER/);
       expect(text).toMatch(/REQUIRE_CONSENT/);
     }
+  });
+
+  it("reads the USD spend settings exactly", () => {
+    const { config, warnings } = loadConfig({
+      ...minimal,
+      DAILY_BUDGET_USD: "20",
+      USER_DAILY_BUDGET_USD: "2.5",
+      MAX_USD_PER_REQUEST: "$0.75",
+      CONFIRM_ABOVE_USD: "0.000000001",
+    });
+    expect(warnings).toEqual([]);
+    expect(config.limits).toMatchObject({ globalDaily: 20_000_000_000, userDaily: 2_500_000_000 });
+    expect(config.spend).toEqual({ maxPerRequest: 750_000_000, confirmAbove: 1 });
+  });
+
+  it("still accepts the credit settings of 0.1.x, converted at $0.001 per credit, with a warning", () => {
+    const { config, warnings } = loadConfig({
+      ...minimal,
+      DAILY_BUDGET_CREDITS: "8000",
+      USER_DAILY_BUDGET_CREDITS: "1500",
+      MAX_CREDITS_PER_REQUEST: "400",
+      CONFIRM_ABOVE_CREDITS: "50",
+    });
+    expect(config.limits).toMatchObject({ globalDaily: 8_000_000_000, userDaily: 1_500_000_000 });
+    expect(config.spend).toEqual({ maxPerRequest: 400_000_000, confirmAbove: 50_000_000 });
+    expect(warnings).toHaveLength(4);
+    expect(warnings[0]).toBe("DAILY_BUDGET_CREDITS is deprecated: replace it with DAILY_BUDGET_USD=8 (1 credit = $0.001).");
+  });
+
+  it("prefers the USD setting when both names are set", () => {
+    const { config, warnings } = loadConfig({ ...minimal, DAILY_BUDGET_USD: "3", DAILY_BUDGET_CREDITS: "9000" });
+    expect(config.limits.globalDaily).toBe(3_000_000_000);
+    expect(warnings).toEqual(["DAILY_BUDGET_CREDITS is ignored because DAILY_BUDGET_USD is set. Remove DAILY_BUDGET_CREDITS."]);
+  });
+
+  it("explains a bad USD setting", () => {
+    expect(() => loadConfig({ ...minimal, MAX_USD_PER_REQUEST: "1e3" })).toThrow(/MAX_USD_PER_REQUEST must be a US dollar amount/);
   });
 
   it("rejects a key that is not a PopNow key", () => {

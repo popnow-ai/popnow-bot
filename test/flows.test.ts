@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BotCore } from "../src/core/bot-core.js";
 import { resolvePending, splitMessage, startEffect, startMedia, type Button, type MediaSurface } from "../src/core/flows.js";
 import { MemoryStore } from "../src/core/store.js";
-import { EFFECT, I2V_SCHEMA, fakeApi, model, NOW, quote, task, testConfig } from "./fakes.js";
+import { EFFECT, I2V_SCHEMA, fakeApi, model, NOW, priced, quote, task, testConfig, usd } from "./fakes.js";
 
 const IMAGE = model();
 const ANIMATE = model({
@@ -12,6 +12,7 @@ const ANIMATE = model({
   modality: "video",
   tasks: ["image-to-video"],
   inputSchema: I2V_SCHEMA,
+  usd: { unit: "per_second", perUnit: "0.003", currency: "USD" },
   credits: { unit: "per_second", perUnit: 3 },
 });
 
@@ -56,25 +57,27 @@ describe("media flow with a fake PopNow API", () => {
     expect(api.createTask).toHaveBeenCalledTimes(1);
     expect(statuses[0]?.text).toMatch(/Checking the price/);
     expect(delivered).toHaveLength(1);
-    expect(delivered[0]?.caption).toBe("Example Image · 1 credit · task job_test1");
+    expect(delivered[0]?.caption).toBe("Example Image · $0.001 · task job_test1");
     expect(delivered[0]?.buttons).toEqual([
       { id: "an:job_test1", label: "Animate", style: "secondary" },
       { id: "fx:job_test1", label: "Effects", style: "secondary" },
     ]);
-    expect(core.ledger.snapshot("tg:111").userSettled).toBe(1);
+    expect(core.ledger.snapshot("tg:111").userSettled).toBe(usd("0.001"));
+    // The hold is confirmed with the quote's exact USD maximum.
+    expect((api.createTask.mock.calls[0] as unknown[])[0]).toMatchObject({ quoteId: "q_1", expectedCostUsd: "0.001" });
   });
 
   it("asks before spending above the threshold, and only the asker can confirm", async () => {
     const { core, api } = makeCore();
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 130, expectedCredits: 130 }));
+    api.quoteTask.mockResolvedValue(quote({ ...priced("0.13"), maxCredits: 130, expectedCredits: 130 }));
     api.waitForTask.mockResolvedValue(task({ output: { assets: [{ url: "https://files.example.test/v.mp4", mime: "video/mp4" }] } }));
     const { surface, statuses, delivered } = recordingSurface();
     await startMedia(core, caller, "animate", "slow push-in", "pnbot-k2", surface, "popnow://f/fil_1");
     expect(api.createTask).not.toHaveBeenCalled();
     const ask = statuses.at(-1)!;
-    expect(ask.text).toMatch(/up to 130 credits/);
+    expect(ask.text).toMatch(/up to \$0\.13\./);
     const confirm = ask.buttons!.find((button) => button.id.startsWith("ok:"))!;
-    expect(confirm.label).toBe("Confirm (130 credits)");
+    expect(confirm.label).toBe("Confirm ($0.13)");
 
     expect(await resolvePending(core, confirm.id, "tg:999", surface)).toMatch(/Only the person who asked/);
     expect(api.createTask).not.toHaveBeenCalled();
@@ -95,7 +98,7 @@ describe("media flow with a fake PopNow API", () => {
 
   it("cancels without charging", async () => {
     const { core, api } = makeCore();
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 500, expectedCredits: 500 }));
+    api.quoteTask.mockResolvedValue(quote(priced("0.5")));
     const { surface, statuses } = recordingSurface();
     await startMedia(core, caller, "image", "x", "pnbot-k3", surface);
     const cancel = statuses.at(-1)!.buttons!.find((button) => button.id.startsWith("no:"))!;
@@ -105,31 +108,51 @@ describe("media flow with a fake PopNow API", () => {
   });
 
   it("refuses above the per-request limit without submitting", async () => {
-    const { core, api } = makeCore({ MAX_CREDITS_PER_REQUEST: "200" });
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 300, expectedCredits: 250 }));
+    const { core, api } = makeCore({ MAX_USD_PER_REQUEST: "0.2" });
+    api.quoteTask.mockResolvedValue(quote(priced("0.3", "0.25")));
     const { surface, statuses } = recordingSurface();
     await startMedia(core, caller, "image", "x", "pnbot-k4", surface);
-    expect(statuses.at(-1)?.text).toBe("This would cost up to 300 credits, above the per-request limit of 200 credits. Nothing was charged.");
+    expect(statuses.at(-1)?.text).toBe("This would cost up to $0.30, above the per-request limit of $0.20. Nothing was charged.");
     expect(api.createTask).not.toHaveBeenCalled();
   });
 
+  it("still honours the credit-based limit settings of 0.1.x", async () => {
+    const { core, api } = makeCore({ MAX_CREDITS_PER_REQUEST: "200" });
+    api.quoteTask.mockResolvedValue(quote(priced("0.3", "0.25")));
+    const { surface, statuses } = recordingSurface();
+    await startMedia(core, caller, "image", "x", "pnbot-k4b", surface);
+    expect(statuses.at(-1)?.text).toBe("This would cost up to $0.30, above the per-request limit of $0.20. Nothing was charged.");
+  });
+
   it("refuses when today's personal limit is used up", async () => {
-    const { core, api } = makeCore({ USER_DAILY_BUDGET_CREDITS: "1" });
+    const { core, api } = makeCore({ USER_DAILY_BUDGET_USD: "0.001" });
     const { surface, statuses } = recordingSurface();
     await startMedia(core, caller, "image", "x", "pnbot-k5", surface);
     await startMedia(core, caller, "image", "y", "pnbot-k6", surface);
     expect(api.createTask).toHaveBeenCalledTimes(1);
-    expect(statuses.at(-1)?.text).toMatch(/daily limit of 1 credit .*Nothing was charged/);
+    expect(statuses.at(-1)?.text).toMatch(/daily limit of \$0\.001 \(\$0\.00 left today\).*Nothing was charged/);
   });
 
   it("explains a model rejection and keeps the money", async () => {
     const { core, api } = makeCore();
-    api.waitForTask.mockResolvedValue(task({ state: "failed", cost: "0", credits: 0, settled: true, errorCode: "content_rejected", errorMessage: "Declined", output: {} }));
+    api.waitForTask.mockResolvedValue(task({ state: "failed", costUsd: "0", cost: "0", credits: 0, settled: true, errorCode: "content_rejected", errorMessage: "Declined", output: {} }));
     const { surface, statuses, delivered } = recordingSurface();
     await startMedia(core, caller, "image", "x", "pnbot-k7", surface);
     expect(delivered).toHaveLength(0);
     expect(statuses.at(-1)?.text).toMatch(/declined this request[\s\S]*Reason: Declined/);
     expect(core.ledger.snapshot("tg:111").userSettled).toBe(0);
+  });
+
+  it("shows today's spend in USD, and the owner the API balance from availableUsd", async () => {
+    const { core, api } = makeCore();
+    const { surface } = recordingSurface();
+    await startMedia(core, caller, "image", "x", "pnbot-k8", surface);
+    expect(await core.spendText(caller)).toContain("• You: $0.001 of $1.00");
+    const owner = await core.spendText({ ...caller, owner: true });
+    expect(owner).toContain("• Whole bot: $0.001 of $5.00");
+    expect(owner).toContain("• PopNow API balance: $12.50");
+    api.getBalance.mockResolvedValueOnce({ available: "", held: "", total: "", availableCredits: 2500 });
+    expect(await core.spendText({ ...caller, owner: true })).toContain("• PopNow API balance: $2.50");
   });
 
   it("animates the bot's own image from its task with a fresh link and the original prompt", async () => {
@@ -153,7 +176,7 @@ describe("effect flow", () => {
       model: ANIMATE.model,
       input: { duration_seconds: 5, resolution: "768p", prompt: EFFECT.prompt, image_url: "popnow://f/fil_9" },
     });
-    expect(delivered[0]?.caption).toBe("Tiny Planet effect · 1 credit · task job_test1");
+    expect(delivered[0]?.caption).toBe("Tiny Planet effect · $0.001 · task job_test1");
     expect(delivered[0]?.buttons).toEqual([]);
   });
 

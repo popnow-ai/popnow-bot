@@ -1,6 +1,7 @@
 /**
- * Real-API smoke test of the bot's core, without Telegram or Discord. It spends real credits
- * (roughly 10 to 20 with the defaults, more with LIVE_EFFECT), so it is never run in CI.
+ * Real-API smoke test of the bot's core, without Telegram or Discord. It spends real money from
+ * the API balance (a few cents with the defaults, more with LIVE_EFFECT), so it is never run in
+ * CI.
  *
  *   POPNOW_API_KEY=sk-popnow-... npm run live-check
  *
@@ -16,7 +17,11 @@ import { loadConfig } from "../src/config.js";
 import { BotCore } from "../src/core/bot-core.js";
 import { resolvePending, startEffect, startMedia, type Button, type MediaSurface } from "../src/core/flows.js";
 import { idempotencyKey } from "../src/core/idempotency.js";
-import { formatCredits } from "../src/core/credits.js";
+import { creditsToUsd, formatUsd, parseSignedUsd, type Usd } from "../src/core/money.js";
+import type { ApiBalance } from "../src/core/api.js";
+
+const availableUsd = (balance: ApiBalance): Usd =>
+  parseSignedUsd(balance.availableUsd) ?? parseSignedUsd(balance.available) ?? creditsToUsd(balance.availableCredits) ?? 0;
 
 const started = Date.now();
 const stamp = () => `${((Date.now() - started) / 1000).toFixed(1).padStart(6)}s`;
@@ -63,7 +68,7 @@ async function main(): Promise<void> {
   const { config } = loadConfig({
     TELEGRAM_BOT_TOKEN: "live-check-unused",
     OWNER_ID: "1",
-    CONFIRM_ABOVE_CREDITS: "5",
+    CONFIRM_ABOVE_USD: "0.005",
     VIDEO_SECONDS: "1",
     VIDEO_RESOLUTION: "480p",
     ...process.env,
@@ -73,7 +78,7 @@ async function main(): Promise<void> {
   const caller = { user: "live:1", owner: false, name: "Sam" };
   const run = Date.now().toString(36);
   const before = await core.api.getBalance();
-  say(`balance before: ${formatCredits(before.availableCredits)}`);
+  say(`balance before: ${formatUsd(availableUsd(before))}`);
 
   // 1. Image
   const image = surface("image");
@@ -120,9 +125,9 @@ async function main(): Promise<void> {
   await core.reconcile();
   const snap = core.ledger.snapshot(caller.user);
   const after = await core.api.getBalance();
-  const spent = before.availableCredits - after.availableCredits;
-  say(`ledger: settled ${formatCredits(snap.userSettled)}, still held ${formatCredits(snap.userHeld)}`);
-  say(`balance after: ${formatCredits(after.availableCredits)} (account balance moved by ${formatCredits(spent)})`);
+  const spent = availableUsd(before) - availableUsd(after);
+  say(`ledger: settled ${formatUsd(snap.userSettled)}, still held ${formatUsd(snap.userHeld)}`);
+  say(`balance after: ${formatUsd(availableUsd(after))} (API balance moved by ${formatUsd(spent)})`);
   rmSync(dataDir, { recursive: true, force: true });
 }
 

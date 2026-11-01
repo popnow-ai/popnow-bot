@@ -1,5 +1,5 @@
 import type { BotConfig } from "../config.js";
-import { formatCredits } from "./credits.js";
+import { formatUsd } from "./money.js";
 
 export interface CommandInfo {
   name: string;
@@ -36,7 +36,7 @@ export const CONSENT_LABEL = "I agree";
 export function helpText(config: BotConfig, platform: "telegram" | "discord", names: { image: string; video: string; animate: string }, effectCount: number): string {
   const slash = "/";
   const lines = [
-    "PopNow bot: AI images and videos, paid from the operator's PopNow credits. Make it pop.",
+    "PopNow bot: AI images and videos, paid in US dollars from the operator's PopNow API balance. Make it pop.",
     "",
     `${slash}pic <prompt> — image (${names.image})`,
     `${slash}vid <prompt> — video (${names.video})`,
@@ -58,10 +58,10 @@ export function helpText(config: BotConfig, platform: "telegram" | "discord", na
     `${slash}models — choose models · ${slash}spend — what you have spent today`,
     `${slash}report <text> — tell the operator about a problem or inappropriate content`,
     "",
-    "Credits:",
-    `• Every image and video is priced before it runs. Above ${formatCredits(config.spend.confirmAbove)} you are asked to confirm; above ${formatCredits(config.spend.maxPerRequest)} it is refused.`,
-    `• Daily limit: ${formatCredits(config.limits.userDaily)} per person, ${formatCredits(config.limits.globalDaily)} for the whole bot (reset 00:00 UTC).`,
-    "• A started generation cannot be cancelled. Failed generations are refunded.",
+    "Prices:",
+    `• Every image and video is priced before it runs. Above ${formatUsd(config.spend.confirmAbove)} you are asked to confirm; above ${formatUsd(config.spend.maxPerRequest)} it is refused.`,
+    `• Daily limit: ${formatUsd(config.limits.userDaily)} per person, ${formatUsd(config.limits.globalDaily)} for the whole bot (reset 00:00 UTC).`,
+    "• A started generation cannot be cancelled. Failed generations are not charged.",
   );
   if (!config.allowPhotoUploads) lines.push("• Using your own uploaded photos is turned off on this bot.");
   return lines.join("\n");

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { emptyLedger, type LedgerData } from "./ledger.js";
+import { emptyLedger, migrateLedger, type LedgerData } from "./ledger.js";
 
 /** The three requests a person can point at a model of their choice. */
 export type ModelKind = "image" | "video" | "animate";
@@ -12,8 +12,8 @@ export interface UserPrefs {
 }
 
 /**
- * Everything the bot keeps on disk. Deliberately small: spend totals, per-person settings and
- * who accepted the usage rules. No prompts or media are ever written here.
+ * Everything the bot keeps on disk. Deliberately small: spend totals in USD, per-person settings
+ * and who accepted the usage rules. No prompts or media are ever written here.
  */
 export interface BotState {
   version: 1;
@@ -62,10 +62,8 @@ export class JsonFileStore implements StateStore {
       const base = emptyState();
       return {
         version: 1,
-        ledger: {
-          days: parsed.ledger?.days ?? base.ledger.days,
-          holds: parsed.ledger?.holds ?? base.ledger.holds,
-        },
+        // Spend totals written by 0.1.x are in credits; they are converted to USD on load.
+        ledger: parsed.ledger ? migrateLedger(parsed.ledger) : base.ledger,
         prefs: parsed.prefs ?? {},
         consents: parsed.consents ?? {},
       };

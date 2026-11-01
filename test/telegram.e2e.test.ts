@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BotCore } from "../src/core/bot-core.js";
 import { MemoryStore } from "../src/core/store.js";
 import { startTelegram, type TelegramHandle } from "../src/telegram/bot.js";
-import { EFFECT, I2V_SCHEMA, fakeApi, model, NOW, quote, task, testConfig } from "./fakes.js";
+import { EFFECT, I2V_SCHEMA, fakeApi, model, NOW, priced, quote, task, testConfig } from "./fakes.js";
 
 /**
  * Runs the real grammY bot against a stand-in Telegram Bot API on localhost and a fake PopNow API, so
@@ -126,7 +126,7 @@ describe("Telegram bot against a fake Bot API", () => {
     await vi.waitFor(() => expect(telegram.method("sendPhoto")).toHaveLength(1), { timeout: 5000 });
     const photo = telegram.method("sendPhoto")[0]!.body;
     expect(photo.photo).toBe("https://files.example.test/result.png");
-    expect(photo.caption).toBe("Example Image · 1 credit · task job_test1");
+    expect(photo.caption).toBe("Example Image · $0.001 · task job_test1");
     expect(photo.reply_markup).toEqual({ inline_keyboard: [[{ text: "Animate", callback_data: "an:job_test1" }, { text: "Effects", callback_data: "fx:job_test1" }]] });
     expect((api.createTask.mock.calls[0] as unknown[])[1]).toMatchObject({ idempotencyKey: expect.stringMatching(/^pnbot-/) });
 
@@ -152,13 +152,13 @@ describe("Telegram bot against a fake Bot API", () => {
 
   it("asks for confirmation above the threshold and runs only after the tap", async () => {
     const { telegram, api } = await start();
-    api.quoteTask.mockResolvedValue(quote({ maxCredits: 400, expectedCredits: 400 }));
+    api.quoteTask.mockResolvedValue(quote({ ...priced("0.4"), maxCredits: 400, expectedCredits: 400 }));
     telegram.push(message(OWNER, "/pic something big"));
-    await vi.waitFor(() => expect(telegram.method("editMessageText").some((call) => String(call.body.text).includes("up to 400 credits"))).toBe(true), { timeout: 5000 });
-    const ask = telegram.method("editMessageText").find((call) => String(call.body.text).includes("up to 400 credits"))!;
+    await vi.waitFor(() => expect(telegram.method("editMessageText").some((call) => String(call.body.text).includes("up to $0.40"))).toBe(true), { timeout: 5000 });
+    const ask = telegram.method("editMessageText").find((call) => String(call.body.text).includes("up to $0.40"))!;
     const keyboard = ask.body.reply_markup as { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> };
     const confirm = keyboard.inline_keyboard[0]![0]!;
-    expect(confirm.text).toBe("Confirm (400 credits)");
+    expect(confirm.text).toBe("Confirm ($0.40)");
     expect(api.createTask).not.toHaveBeenCalled();
 
     telegram.push({
@@ -215,7 +215,7 @@ describe("Telegram bot against a fake Bot API", () => {
     const { telegram, api } = await start();
     api.getTask.mockResolvedValue(task());
     api.waitForTask.mockResolvedValue(task({ taskId: "job_fx", output: { assets: [{ url: "https://files.example.test/fx.mp4", mime: "video/mp4", bytes: 2_000_000 }] } }));
-    const image = { message_id: 555, date: 0, chat: { id: OWNER.id, type: "private" }, from: { id: BOT_ID, is_bot: true, first_name: "PopNow" }, caption: "Example Image · 1 credit · task job_test1", photo: [] };
+    const image = { message_id: 555, date: 0, chat: { id: OWNER.id, type: "private" }, from: { id: BOT_ID, is_bot: true, first_name: "PopNow" }, caption: "Example Image · $0.001 · task job_test1", photo: [] };
     telegram.push({ callback_query: { id: "cb4", from: OWNER, chat_instance: "x", data: "fx:job_test1", message: image } });
     await vi.waitFor(() => expect(telegram.method("sendMessage")).toHaveLength(1), { timeout: 5000 });
     const picker = telegram.method("sendMessage")[0]!.body;
@@ -230,7 +230,7 @@ describe("Telegram bot against a fake Bot API", () => {
       model: EFFECT.model,
       input: { prompt: EFFECT.prompt, image_url: "https://files.example.test/result.png", duration_seconds: 5, resolution: "768p" },
     });
-    expect(String(telegram.method("sendVideo")[0]!.body.caption)).toMatch(/^Tiny Planet effect · 1 credit · task job_fx/);
+    expect(String(telegram.method("sendVideo")[0]!.body.caption)).toMatch(/^Tiny Planet effect · \$0\.001 · task job_fx/);
   });
 
   it("lists effects and points plain text at the commands", async () => {

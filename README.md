@@ -27,7 +27,8 @@
 PopNow is a browser-based AI studio for videos, images and music: image-to-video, text-to-video, AI images,
 one-tap trending video effects and more, with models such as Kling, Seedance, Wan, Vidu, MiniMax, Nano Banana,
 GPT Image and Flux. This bot brings the image and video side of it into your Telegram chats and Discord
-servers. It runs on your own machine and pays from your own PopNow credits; failed runs are refunded.
+servers. It runs on your own machine and pays in exact US dollars from your own PopNow API balance (separate
+from website credits); failed runs are not charged.
 
 - **Images**: `/pic a lighthouse at dusk`
 - **Videos**: `/vid waves rolling onto a beach at sunset`
@@ -42,7 +43,8 @@ servers. It runs on your own machine and pays from your own PopNow credits; fail
 You need a computer or server that stays on, with [Docker](https://docs.docker.com/get-docker/) installed.
 
 **1. Get the keys.** Create an API key just for this bot at
-[popnow.ai/api/console/keys](https://popnow.ai/api/console/keys) and give it a spend cap there. Then open
+[popnow.ai/api/console/keys](https://popnow.ai/api/console/keys) and give it a spend cap there. The API balance
+starts at $0: add funds at [popnow.ai/api/console/billing](https://popnow.ai/api/console/billing). Then open
 [@BotFather](https://t.me/BotFather) in Telegram, send `/newbot` and copy the bot token.
 
 **2. Configure.**
@@ -128,7 +130,7 @@ is quoted like any other request before it runs. Browse the live effects at [pop
 | `/effects` | List the video effects and their ids |
 | **Animate** / **Effects** buttons | Under every generated image |
 | `/models` | Choose your image, video and animate models |
-| `/spend` | What you have spent today; the owner also sees the whole bot and the account balance |
+| `/spend` | What you have spent today, in USD; the owner also sees the whole bot and the API balance |
 | `/report <text>` | Send a report to the operator |
 | `/help` | Summary of all of this |
 
@@ -139,22 +141,30 @@ always work.
 ## How spending works
 
 1. **Price first.** Each request is quoted with `POST /api/v1/jobs/quote` before anything happens. Quotes are free.
-2. **Hard ceiling.** A request that could cost more than `MAX_CREDITS_PER_REQUEST` (default 1,000 credits = $1) is
-   refused. Nothing is charged.
-3. **Confirmation.** Above `CONFIRM_ABOVE_CREDITS` (default 100 credits = $0.10) the bot shows the price with
-   **Confirm** and **Cancel** buttons. Only the person who asked can confirm.
-4. **Daily limits.** Each person may spend `USER_DAILY_BUDGET_CREDITS` (default 1,000) per UTC day, the whole
-   bot `DAILY_BUDGET_CREDITS` (default 5,000). Generations still running count as spent until they finish, so
-   several requests at once cannot slip past a limit. Owners are only bound by the whole-bot limit.
-5. **No double charges.** Each task is created with the signed `quoteId`, the confirmed `expectedCredits` and an
-   `Idempotency-Key` derived from the chat message or button tap, so a duplicated update or a double tap returns
-   the task that already exists.
+2. **Hard ceiling.** A request that could cost more than `MAX_USD_PER_REQUEST` (default $1) is refused. Nothing
+   is charged.
+3. **Confirmation.** Above `CONFIRM_ABOVE_USD` (default $0.10) the bot shows the price with **Confirm** and
+   **Cancel** buttons. Only the person who asked can confirm.
+4. **Daily limits.** Each person may spend `USER_DAILY_BUDGET_USD` (default $1) per UTC day, the whole bot
+   `DAILY_BUDGET_USD` (default $5). Generations still running count as spent until they finish, so several
+   requests at once cannot slip past a limit. Owners are only bound by the whole-bot limit.
+5. **No double charges.** Each task is created with the signed `quoteId`, the confirmed `expectedCostUsd` (the
+   quote's exact `maxChargeUsd`) and an `Idempotency-Key` derived from the chat message or button tap, so a
+   duplicated update or a double tap returns the task that already exists.
 6. **Results.** Progress is shown by editing one message every few seconds. The result shows the actual charge
-   and the task ID.
+   (`costUsd`) and the task ID.
 
-1 credit = $0.001; see [popnow.ai/pricing](https://popnow.ai/pricing). A started generation cannot be cancelled.
-Failed generations are refunded. The bot's ledger lives in `DATA_DIR/state.json`; the key's spend cap in the
-PopNow API console is the limit that can never be lost.
+Every amount is exact USD. The API sends decimal strings with up to nine decimal places and the bot keeps them
+as whole nanodollars, so nothing is rounded through floating point. Prices per model are on
+[popnow.ai/api/pricing](https://popnow.ai/api/pricing); the API balance is separate from website credits, which
+never pay for API calls. A started generation cannot be cancelled. Failed generations are not charged. The
+bot's ledger lives in `DATA_DIR/state.json`; the key's spend cap in the PopNow API console is the limit that can
+never be lost.
+
+**Upgrading from 0.1.x.** The old credit settings (`DAILY_BUDGET_CREDITS`, `USER_DAILY_BUDGET_CREDITS`,
+`MAX_CREDITS_PER_REQUEST`, `CONFIRM_ABOVE_CREDITS`) still work, converted at 1 credit = $0.001, and log a
+warning with the USD setting to use instead; when both are set, the USD one wins. Today's spend totals in
+`state.json` are converted to USD the first time 0.2.0 starts.
 
 ## Discord setup (optional)
 
@@ -180,8 +190,9 @@ Every setting is an environment variable; [`.env.example`](.env.example) explain
 | `OWNER_ID` | required | Your user ID(s); `tg:` / `dc:` prefixes pin a platform |
 | `ALLOWED_USER_IDS` | empty | Other people allowed in private chats |
 | `ALLOWED_CHAT_IDS` | empty | Groups, channels or servers where the bot answers |
-| `DAILY_BUDGET_CREDITS` / `USER_DAILY_BUDGET_CREDITS` | `5000` / `1000` | Daily limits (UTC) |
-| `MAX_CREDITS_PER_REQUEST` / `CONFIRM_ABOVE_CREDITS` | `1000` / `100` | Per-request ceiling and confirmation threshold |
+| `DAILY_BUDGET_USD` / `USER_DAILY_BUDGET_USD` | `5` / `1` | Daily limits in USD (UTC days) |
+| `MAX_USD_PER_REQUEST` / `CONFIRM_ABOVE_USD` | `1` / `0.10` | Per-request ceiling and confirmation threshold in USD |
+| `*_CREDITS` (deprecated) | unset | The 0.1.x names; converted at 1 credit = $0.001 when the USD setting is not set |
 | `DEFAULT_IMAGE_MODEL` | `alibaba/z-image-turbo/text-to-image` | Any text-to-image model |
 | `DEFAULT_VIDEO_MODEL` / `DEFAULT_ANIMATE_MODEL` | `minimax/h3/text-to-video` / `minimax/h3/image-to-video` | Any text-to-video / image-to-video model |
 | `ALLOWED_MODELS` | empty (all) | Exact IDs or prefixes such as `alibaba/*` |
@@ -213,7 +224,7 @@ domain and no open port.
 
 - **Private by default.** Strangers who find the bot are told it is private and given their user ID to send
   you. Groups are ignored until listed in `ALLOWED_CHAT_IDS`; once listed, every member can use the bot.
-  `ALLOWED_USER_IDS=*` makes the bot public and lets anyone spend your credits.
+  `ALLOWED_USER_IDS=*` makes the bot public and lets anyone spend your API balance.
 - **Usage rules.** With `REQUIRE_CONSENT=true`, everyone accepts a short set of rules once: keep it suitable
   for everyone, only upload photos you may use, never impersonate or embarrass a real person.
 - **Uploaded photos are off by default.** If you enable `ALLOW_PHOTO_UPLOADS`, the bot downloads the image
@@ -229,12 +240,12 @@ You operate this bot and are responsible for who you let use it. PopNow's [terms
 
 | Message or symptom | What to do |
 |---|---|
-| "out of credits" (`40201`) | Top up at [popnow.ai/pricing](https://popnow.ai/pricing) |
+| "cannot cover this request" (`40201`) | Add funds at [popnow.ai/api/console/billing](https://popnow.ai/api/console/billing) |
 | "reached the spend cap" (`40202`) | The key's cap was reached; raise it in the API console or wait |
 | "not allowed to use that model" (`40301`) | Allow the model on the key, or pick another with `/models` |
 | "has not verified its email" (`40310`) | Open the verification link PopNow emailed you |
 | "The price changed" (`40901`) | The bot re-quotes once on its own; if the new price is higher than what was confirmed, it asks again |
-| "The model declined this request" | Reword the prompt or pick another model. Refunded |
+| "The model declined this request" | Reword the prompt or pick another model. Not charged |
 | `Conflict: terminated by other getUpdates request` | Two copies of the bot use the same token. Stop one |
 | Discord commands missing | Global commands can take a moment to appear; set `DISCORD_GUILD_ID` for instant registration |
 | Network errors behind a proxy | Node's `fetch` ignores `HTTPS_PROXY` unless started with `NODE_USE_ENV_PROXY=1` |
@@ -258,11 +269,12 @@ Liquid Chrome. Effects are presets you can edit in `effects/default.json`.
 
 ### How much does it cost, and can I see the price first?
 
-Every request is quoted before it runs, in PopNow credits (1 credit = $0.001). Above your confirmation
-threshold the bot asks first, above your ceiling it refuses, and failed runs are refunded. There is no
-subscription; credit packs are on [popnow.ai/pricing](https://popnow.ai/pricing).
+Every request is quoted in US dollars before it runs. Above your confirmation threshold the bot asks first,
+above your ceiling it refuses, and failed runs are not charged. There is no subscription: the bot spends your
+PopNow API balance, which you fund at [popnow.ai/api/console/billing](https://popnow.ai/api/console/billing).
+Model prices are on [popnow.ai/api/pricing](https://popnow.ai/api/pricing).
 
-### How do I stop other people from spending my credits?
+### How do I stop other people from spending my API balance?
 
 The bot only answers you until you list other users (`ALLOWED_USER_IDS`) or groups (`ALLOWED_CHAT_IDS`).
 Per-person and whole-bot daily limits apply on top, and the key's own spend cap holds even if the bot's data is lost.
@@ -287,19 +299,21 @@ npm run dev          # build and run with .env
 
 The tests use a fake PopNow API and a stand-in Telegram Bot API on localhost, so they need no keys or network.
 `npm run live-check` runs the core flow against the real API with `POPNOW_API_KEY` (one image and one 480p
-image-to-video; set `LIVE_EFFECT=tiny-planet` to also try an effect) without Telegram or Discord. It spends real credits.
+image-to-video; set `LIVE_EFFECT=tiny-planet` to also try an effect) without Telegram or Discord. It spends real money
+from the API balance.
 
 Built on [grammY](https://grammy.dev), [discord.js](https://discord.js.org) and the official
 [`popnow`](https://github.com/popnow-ai/popnow-js) TypeScript SDK. Every request carries
-`User-Agent: popnow-bot/0.1.0`.
+`User-Agent: popnow-bot/0.2.0`.
 
 ## Links
 
-- Website: [popnow.ai](https://popnow.ai) · Pricing: [popnow.ai/pricing](https://popnow.ai/pricing)
+- Website: [popnow.ai](https://popnow.ai) · API pricing: [popnow.ai/api/pricing](https://popnow.ai/api/pricing) · Add funds: [popnow.ai/api/console/billing](https://popnow.ai/api/console/billing)
 - Docs: [popnow.ai/docs](https://popnow.ai/docs) · API reference: [popnow.ai/docs/openapi](https://popnow.ai/docs/openapi) ([openapi.yaml](https://popnow.ai/docs/openapi.yaml)) · [llms.txt](https://popnow.ai/llms.txt)
-- MCP server for AI assistants: [popnow.ai/mcp](https://popnow.ai/mcp)
+- Developer MCP server (API key, USD): `https://api.popnow.ai/api/v1/mcp` · setup at [popnow.ai/api/mcp](https://popnow.ai/api/mcp)
+- Agent skills: [popnow.ai/api/skills](https://popnow.ai/api/skills)
 - Other PopNow repositories:
-  [popnow-mcp](https://github.com/popnow-ai/popnow-mcp) ·
+  [popnow-api-mcp](https://github.com/popnow-ai/popnow-api-mcp) ·
   [popnow-skills](https://github.com/popnow-ai/popnow-skills) ·
   [popnow-python](https://github.com/popnow-ai/popnow-python) ·
   [popnow-js](https://github.com/popnow-ai/popnow-js) ·

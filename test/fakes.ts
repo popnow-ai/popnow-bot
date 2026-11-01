@@ -1,17 +1,29 @@
-import type { CreateTaskResponse, Model, TaskQuote, TaskRecord } from "popnow";
 import { vi } from "vitest";
 import { loadConfig, type BotConfig } from "../src/config.js";
-import type { PopNowApi } from "../src/core/api.js";
+import type { AcceptedTask, CatalogModel, PopNowApi, Quote, Task } from "../src/core/api.js";
 import type { Effect } from "../src/core/effects.js";
+import { parseUsd, type Usd } from "../src/core/money.js";
 
 export const NOW = Date.parse("2026-10-06T12:00:00Z");
 
-export function quote(overrides: Partial<TaskQuote> = {}): TaskQuote {
+/** "0.13" -> nanodollars, the unit the ledger and the spend checks use. */
+export function usd(value: string): Usd {
+  const parsed = parseUsd(value);
+  if (parsed === undefined) throw new Error(`not a USD amount: ${value}`);
+  return parsed;
+}
+
+/** The USD price fields of a quote as the API sends them, legacy aliases included. */
+export function priced(max: string, expected = max): Required<Pick<Quote, "maxChargeUsd" | "expectedChargeUsd" | "maxCharge" | "estimatedCost" | "expectedCharge">> {
+  return { maxChargeUsd: max, expectedChargeUsd: expected, maxCharge: max, estimatedCost: max, expectedCharge: expected };
+}
+
+/** The current quote shape: exact USD strings first, the deprecated credit projections alongside. */
+export function quote(overrides: Partial<Quote> = {}): Quote {
   return {
     quoteId: "q_1",
     model: "example/image-model/text-to-image",
-    estimatedCost: "0.001",
-    maxCharge: "0.001",
+    ...priced("0.001"),
     maxCredits: 1,
     expectedCredits: 1,
     currency: "USD",
@@ -22,10 +34,11 @@ export function quote(overrides: Partial<TaskQuote> = {}): TaskQuote {
   };
 }
 
-export function accepted(overrides: Partial<CreateTaskResponse> = {}): CreateTaskResponse {
+export function accepted(overrides: Partial<AcceptedTask> = {}): AcceptedTask {
   return {
     taskId: "job_test1",
     state: "queued",
+    estimatedCostUsd: "0.001",
     estimatedCost: "0.001",
     estimatedCredits: 1,
     deadlineAt: new Date(NOW + 10 * 60_000).toISOString(),
@@ -33,11 +46,12 @@ export function accepted(overrides: Partial<CreateTaskResponse> = {}): CreateTas
   };
 }
 
-export function task(overrides: Partial<TaskRecord> = {}): TaskRecord {
+export function task(overrides: Partial<Task> = {}): Task {
   return {
     taskId: "job_test1",
     model: "example/image-model/text-to-image",
     state: "succeeded",
+    costUsd: "0.001",
     cost: "0.001",
     credits: 1,
     settled: true,
@@ -69,7 +83,7 @@ export const I2V_SCHEMA = {
   },
 };
 
-export function model(overrides: Partial<Model> = {}): Model {
+export function model(overrides: Partial<CatalogModel> = {}): CatalogModel {
   return {
     model: "example/image-model/text-to-image",
     family: "example/image-model",
@@ -82,6 +96,7 @@ export function model(overrides: Partial<Model> = {}): Model {
     enabled: true,
     available: true,
     quantityField: "",
+    usd: { unit: "per_image", perUnit: "0.001", currency: "USD" },
     credits: { unit: "per_image", perUnit: 1 },
     inputSchema: IMAGE_SCHEMA,
     version: "1",
@@ -104,7 +119,7 @@ export const EFFECT: Effect = {
 };
 
 /** A PopNow stand-in: every method is a vi.fn with a sensible default. */
-export function fakeApi(models: Model[] = [model()]) {
+export function fakeApi(models: CatalogModel[] = [model()]) {
   return {
     quoteTask: vi.fn<PopNowApi["quoteTask"]>(async () => quote()),
     createTask: vi.fn<PopNowApi["createTask"]>(async () => accepted()),
@@ -113,12 +128,15 @@ export function fakeApi(models: Model[] = [model()]) {
     listModels: vi.fn<PopNowApi["listModels"]>(async () => ({ total: models.length, items: models })),
     getModel: vi.fn<PopNowApi["getModel"]>(async (id: string) => models.find((item) => item.model === id) ?? models[0]!),
     getBalance: vi.fn<PopNowApi["getBalance"]>(async () => ({
-      available: "12.50",
+      availableUsd: "12.5",
+      heldUsd: "0",
+      totalUsd: "12.5",
+      available: "12.5",
       held: "0",
-      total: "12.50",
-      availableCredits: 1250,
+      total: "12.5",
+      availableCredits: 12500,
       heldCredits: 0,
-      totalCredits: 1250,
+      totalCredits: 12500,
     })),
     uploadBytes: vi.fn<PopNowApi["uploadBytes"]>(async () => ({
       fileId: "fil_1",
