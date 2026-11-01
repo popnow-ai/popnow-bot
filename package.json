@@ -32,7 +32,7 @@
     "@grammyjs/auto-retry": "2.0.2",
     "discord.js": "14.27.0",
     "grammy": "1.46.0",
-    "popnow": "0.1.0"
+    "popnow": "0.2.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

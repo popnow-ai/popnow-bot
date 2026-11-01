@@ -16,14 +16,14 @@ export const BOT_VERSION = "0.2.0";
 export const USER_AGENT = `popnow-bot/${BOT_VERSION} (+https://github.com/popnow-ai/popnow-bot)`;
 
 /*
- * The API bills in exact USD and sends the USD fields below as decimal strings. The `popnow` SDK
- * release the bot depends on (0.1.0) does not declare them yet, so they are added here; the SDK
- * passes every field through untouched. The integer credit fields are deprecated display
- * projections (1 credit = $0.001) that the bot reads only when a USD field is missing.
+ * The API bills in exact USD and sends the USD fields below as decimal strings. `popnow` 0.2.0
+ * declares them; they are restated here as optional so the bot keeps working against an API
+ * response or a test double that only carries the legacy fields. The integer credit fields are
+ * deprecated display projections (1 credit = $0.001) that the bot reads only when a USD field is missing.
  */
 
 /** `POST /api/v1/jobs/quote`. */
-export type Quote = Omit<TaskQuote, "maxCredits" | "expectedCredits"> & {
+export type Quote = Omit<TaskQuote, "maxCredits" | "expectedCredits" | "maxChargeUsd" | "expectedChargeUsd" | "expectedCharge"> & {
   /** Exact maximum USD held on acceptance. Sent back as `expectedCostUsd` to confirm the hold. */
   maxChargeUsd?: string;
   /** Exact typical USD charge, never above `maxChargeUsd`. Informational only. */
@@ -37,7 +37,7 @@ export type Quote = Omit<TaskQuote, "maxCredits" | "expectedCredits"> & {
 };
 
 /** `POST /api/v1/jobs/createTask` body. */
-export type CreateTaskPayload = Omit<CreateTaskParams, "expectedCredits" | "expectedCost"> & {
+export type CreateTaskPayload = Omit<CreateTaskParams, "expectedCredits" | "expectedCost" | "expectedCostUsd"> & {
   /** Exact USD hold the caller confirmed: the quote's `maxChargeUsd`. */
   expectedCostUsd?: string;
   /** @deprecated Legacy name for `expectedCostUsd`. */
@@ -47,7 +47,7 @@ export type CreateTaskPayload = Omit<CreateTaskParams, "expectedCredits" | "expe
 };
 
 /** The acceptance record of a new task. */
-export type AcceptedTask = Omit<CreateTaskResponse, "estimatedCredits"> & {
+export type AcceptedTask = Omit<CreateTaskResponse, "estimatedCredits" | "estimatedCostUsd"> & {
   /** Exact USD held on acceptance; the most the task can cost. */
   estimatedCostUsd?: string;
   /** @deprecated Rounded credits (1 credit = $0.001). Use `estimatedCostUsd`. */
@@ -55,7 +55,7 @@ export type AcceptedTask = Omit<CreateTaskResponse, "estimatedCredits"> & {
 };
 
 /** A task record from `recordInfo` or the wait loop. */
-export type Task = Omit<TaskRecord, "credits"> & {
+export type Task = Omit<TaskRecord, "credits" | "exactCredits" | "costUsd"> & {
   /** Exact USD: the final charge once `settled`, otherwise the hold. */
   costUsd?: string;
   /** @deprecated Rounded credits (1 credit = $0.001). Use `costUsd`. */
@@ -65,7 +65,7 @@ export type Task = Omit<TaskRecord, "credits"> & {
 };
 
 /** `GET /api/v1/chat/credit`: the API balance (the path name is historical). */
-export type ApiBalance = Omit<Balance, "availableCredits" | "heldCredits" | "totalCredits"> & {
+export type ApiBalance = Omit<Balance, "availableCredits" | "heldCredits" | "totalCredits" | "availableUsd" | "heldUsd" | "totalUsd"> & {
   /** Exact USD new tasks can use. May be negative while an approved credit line is in use. */
   availableUsd?: string;
   heldUsd?: string;
